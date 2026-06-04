@@ -316,6 +316,55 @@ check_license() {
     fi
 }
 
+# Check that files listed in install.yaml project_files/global_files contain #ddev-generated
+check_ddev_generated() {
+    local install_yaml="install.yaml"
+
+    local line entry in_section section dir_file
+    local list_item_re='^[[:space:]]*-[[:space:]]+(.*)'
+
+    for section in project_files global_files; do
+        in_section=false
+        while IFS= read -r line; do
+            # Detect section header
+            if [[ "$line" == "${section}:" ]]; then
+                in_section=true
+                continue
+            fi
+
+            [[ "$in_section" != "true" ]] && continue
+
+            # A top-level YAML key (starts with a letter) ends the section
+            [[ "$line" =~ ^[a-zA-Z] ]] && break
+
+            # Match non-commented list entries with any indentation: "- <value>"
+            [[ "$line" =~ $list_item_re ]] || continue
+            entry="${BASH_REMATCH[1]}"
+
+            [[ -z "$entry" ]] && continue
+
+            # Skip entries with environment variable interpolation (can't resolve at check time)
+            [[ "$entry" =~ \$\{ ]] && continue
+
+            # For directories, check all files inside recursively
+            if [[ -d "$entry" ]]; then
+                while IFS= read -r -d '' dir_file; do
+                    if ! grep -q "#ddev-generated" "$dir_file" 2>/dev/null; then
+                        actions+=("$dir_file (in directory $entry listed in install.yaml $section) does not contain '#ddev-generated'")
+                    fi
+                done < <(find "$entry" -type f -print0 2>/dev/null)
+                continue
+            fi
+
+            [[ ! -f "$entry" ]] && continue
+
+            if ! grep -q "#ddev-generated" "$entry" 2>/dev/null; then
+                actions+=("$entry is listed in install.yaml ($section) but does not contain '#ddev-generated'")
+            fi
+        done < "$install_yaml"
+    done
+}
+
 # Check .gitattributes
 check_gitattributes() {
   local gitattributes=".gitattributes"
@@ -414,6 +463,9 @@ run_checks() {
 
     # Check install.yaml for conditions
     check_install_yaml
+
+    # Check #ddev-generated in files listed in install.yaml
+    check_ddev_generated
 
     # Check docker-compose.*.yaml for conditions
     check_docker_compose_yaml
