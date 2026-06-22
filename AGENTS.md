@@ -29,11 +29,11 @@ Strictly adhere to these rules during all development, editing, and testing.
 
 ### New Packages or Extensions
 When adding a new global PI package/extension:
-1.  **Add Version Env Var**: Create a `PI_<NAME>_VERSION` environment variable.
-2.  **Allow Overrides**: The variable must be customizable by users in `.ddev/.env.pi`.
-3.  **Set Default**: Define a fallback default version in the installer script.
-4.  **Auto-initialize**: The variable must be auto-added to `.ddev/.env.pi` on new installs.
-5.  **Add Tests**: Cover the new version and its behavior in `tests/test.bats`.
+1. **Add Version Env Var**: Create a `PI_<NAME>_VERSION` environment variable with a
+   concrete default version as the inline fallback in `docker-compose.*.yaml`:
+   `- PI_<NAME>_VERSION=${PI_<NAME>_VERSION:-<version>}`.
+2. **Allow Overrides**: The variable must be customizable by users in `.ddev/.env.pi`.
+3. **Add Tests**: Cover the new version and its behavior in `tests/test.bats`.
 
 ### BATS Testing for the `pi` Service
 - The `pi` service is gated by a Docker Compose profile and **is not started by a plain `ddev restart`**.
