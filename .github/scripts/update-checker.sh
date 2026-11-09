@@ -190,6 +190,11 @@ check_test_bats() {
     actions+=("$test_bats should set DDEV_NO_INSTRUMENTATION=true, see upstream file $UPSTREAM/tests/test.bats")
   fi
 
+  # Check for CI=true
+  if ! grep -q "export CI=true" "$test_bats"; then
+    actions+=("$test_bats should set 'export CI=true', see upstream file $UPSTREAM/tests/test.bats")
+  fi
+
   # Check for GITHUB_REPO
   if ! grep -q "GITHUB_REPO" "$test_bats"; then
     actions+=("$test_bats should define GITHUB_REPO, see upstream file $UPSTREAM/tests/test.bats")
@@ -239,11 +244,19 @@ check_tests_workflow() {
   if ! grep -q "ddev/github-action-add-on-test@v2" "$tests_yml"; then
     actions+=("$tests_yml should use 'ddev/github-action-add-on-test@v2', see upstream file $UPSTREAM/$tests_yml")
   fi
+  # Check for tmate, which was replaced upstream
+  if grep -qi "tmate" "$tests_yml"; then
+    actions+=("$tests_yml mentions tmate, which has been replaced upstream, use 'description: Enable remote debugging session', see upstream file $UPSTREAM/$tests_yml")
+  fi
   # Check for at least 2 instances of paths-ignore
   local paths_ignore_count
   paths_ignore_count=$(grep -o "paths-ignore:" "$tests_yml" 2>/dev/null | wc -l)
   if (( paths_ignore_count < 2 )); then
     actions+=("$tests_yml should contain at least 2 instances of 'paths-ignore:', found $paths_ignore_count, see upstream file $UPSTREAM/$tests_yml")
+  fi
+  # Check for an 'os:' matrix, which makes it easy to add more runners, for example to test arm64
+  if ! grep -q "matrix.os" "$tests_yml"; then
+    actions+=("$tests_yml should use an 'os:' matrix and 'runs-on: \${{ matrix.os }}', see upstream file $UPSTREAM/$tests_yml")
   fi
 }
 
@@ -276,8 +289,11 @@ check_github_templates() {
     fi
     # Check PULL_REQUEST_TEMPLATE.md for the required PR testing instruction
     if [[ "$template" == ".github/PULL_REQUEST_TEMPLATE.md" ]]; then
-      if ! grep -q "REPLACE_ME_WITH_THIS_PR_NUMBER" "$template"; then
-        actions+=("PULL_REQUEST_TEMPLATE.md should contain 'ddev add-on get https://github.com/<your-name>/<your-repo>/tarball/refs/pull/REPLACE_ME_WITH_THIS_PR_NUMBER/head', see upstream file $UPSTREAM/$template?plain=1")
+      if ! grep -q -- "--pr REPLACE_ME_WITH_THIS_PR_NUMBER" "$template"; then
+        actions+=("PULL_REQUEST_TEMPLATE.md should contain 'ddev add-on get <your-name>/<your-repo> --pr REPLACE_ME_WITH_THIS_PR_NUMBER', see upstream file $UPSTREAM/$template?plain=1")
+      fi
+      if ! grep -q "Short Summary" "$template"; then
+        actions+=("PULL_REQUEST_TEMPLATE.md should contain a '## Short Summary (TL;DR)' section, see upstream file $UPSTREAM/$template?plain=1")
       fi
     fi
   done
